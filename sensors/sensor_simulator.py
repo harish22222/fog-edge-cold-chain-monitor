@@ -53,10 +53,10 @@ log = logging.getLogger("sensor_simulator")
 # Configuration
 # ---------------------------------------------------------------------------
 # List of delivery trucks in the cold-chain fleet
-devices       = ["truck-01", "truck-02", "truck-03"]
-FOG_NODE_URL  = "http://127.0.0.1:5000/sensor-data"
+devices = ["truck-01", "truck-02", "truck-03"]
+FOG_NODE_URL = "http://172.31.19.144:5000/sensor-data"
 SEND_INTERVAL = 5      # seconds between normal readings
-BURST_COUNT   = 10     # number of events in a burst
+BURST_COUNT = 10       # number of events in a burst
 
 
 # ---------------------------------------------------------------------------
@@ -130,20 +130,20 @@ def _decide_mode() -> str:
 
 def build_payload(mode: str = "normal") -> dict:
     """Assemble a sensor payload for the given simulation mode."""
-    anomaly    = mode == "anomaly"
-    high_vib   = mode in ("high_vibration", "anomaly")
+    anomaly = mode == "anomaly"
+    high_vib = mode in ("high_vibration", "anomaly")
     temp_spike = mode in ("temp_spike", "anomaly")
 
     device_id = random.choice(devices)
 
     return {
-        "device_id":   device_id,
+        "device_id": device_id,
         "temperature": read_temperature(anomaly=anomaly, spike=temp_spike),
-        "humidity":    read_humidity(anomaly=anomaly),
-        "door_open":   read_door_open(anomaly=anomaly),
-        "vibration":   read_vibration(high=high_vib, anomaly=anomaly),
-        "timestamp":   datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
-        "sim_mode":    mode,
+        "humidity": read_humidity(anomaly=anomaly),
+        "door_open": read_door_open(anomaly=anomaly),
+        "vibration": read_vibration(high=high_vib, anomaly=anomaly),
+        "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+        "sim_mode": mode,
     }
 
 
@@ -163,8 +163,8 @@ def send_to_fog(payload: dict, burst_seq: int = 0) -> None:
 
         if response.status_code == 200:
             resp_json = response.json()
-            alerts    = resp_json.get("alerts", [])
-            lat_ms    = resp_json.get("fog_processing_ms", "?")
+            alerts = resp_json.get("alerts", [])
+            lat_ms = resp_json.get("fog_processing_ms", "?")
             log.info(
                 "%s component=sensor device=%s T=%.1f H=%.1f Door=%s Vib=%.1f "
                 "alerts=%s fog_latency_ms=%s",
