@@ -1,210 +1,75 @@
-# Smart Cold-Chain Delivery Monitor
+Smart Cold-Chain Delivery Monitoring System
 
-A complete, scalable IoT system that simulates a **full AWS serverless architecture** locally using Python. Designed for a Master's-level Fog and Edge Computing assignment, it demonstrates a multi-tier pipeline from edge sensors through fog processing to a cloud backend and live dashboard.
+Project Overview
+This project simulates a real-time cold-chain monitoring system using Fog and Cloud computing. It includes sensor simulation, fog processing, a cloud backend, and a dashboard for visualization. The system is designed to monitor environmental conditions such as temperature, humidity, door status, and vibration, and to generate alerts when abnormal conditions are detected.
 
----
+Requirements
+Make sure the following are installed on your system:
+Python 3.x
+pip (Python package manager)
 
-## 🏗️ Architecture
+Install the required libraries using the following command:
+pip install flask requests streamlit pandas
 
-```
-┌─────────────────┐     HTTP POST      ┌─────────────────┐
-│  Sensor Layer   │ ─────────────────► │   Fog Node      │
-│  (Edge / IoT)   │                    │  (Fog Layer)    │
-│sensor_simulator │                    │  fog_node.py    │
-└─────────────────┘                    └────────┬────────┘
-                                                │
-                                  Batch + GZIP POST
-                                                │
-                                                ▼
-                                       ┌────────────────┐
-                                       │  API Gateway   │
-                                       │  (api.py)      │
-                                       │  Port 8000     │
-                                       └───────┬────────┘
-                                               │
-                                        Enqueue event
-                                               │
-                                               ▼
-                                       ┌────────────────┐
-                                       │  SQS Queue     │
-                                       │ queue_manager  │
-                                       │  (in-memory)   │
-                                       └───────┬────────┘
-                                               │
-                                        Poll + process
-                                               │
-                                               ▼
-                                       ┌────────────────┐
-                                       │ Lambda Worker  │
-                                       │lambda_function │
-                                       │  .py           │
-                                       └───────┬────────┘
-                                               │
-                                          Persist
-                                               │
-                                               ▼
-                                       ┌────────────────┐
-                                       │   SQLite DB    │  ≈ DynamoDB
-                                       │ coldchain_     │
-                                       │ events.db      │
-                                       └───────┬────────┘
-                                               │
-                                          REST reads
-                                               │
-                                               ▼
-                                       ┌────────────────┐
-                                       │   Dashboard    │
-                                       │   (Streamlit)  │
-                                       │   Port 8501    │
-                                       └────────────────┘
-```
+Execution Steps
+All components should be run in separate terminals.
 
----
-
-## 📂 Project Structure
-
-```
-coldchain-monitor/
-├── backend/
-│   ├── api.py               # API Gateway simulation (Flask, port 8000)
-│   ├── queue_manager.py     # SQS simulation (in-memory queue + metrics)
-│   ├── lambda_function.py   # Lambda worker (local polling + AWS handler)
-│   └── coldchain_events.db  # SQLite database (auto-created)
-├── fog/
-│   └── fog_node.py          # Fog Layer (Flask, port 5000)
-├── sensors/
-│   └── sensor_simulator.py  # Edge IoT sensor simulation
-├── dashboard/
-│   └── app.py               # Streamlit monitoring dashboard (port 8501)
-├── requirements.txt
-└── README.md
-```
-
----
-
-## 🧩 Component Responsibilities
-
-| Component | Layer | AWS Equivalent | Description |
-|---|---|---|---|
-| `sensor_simulator.py` | Edge | IoT Core / Greengrass | Generates sensor readings every 5s with 5 simulation modes |
-| `fog_node.py` | Fog | Greengrass Edge Runtime | Local alert detection, batching, gzip compression, latency metrics |
-| `api.py` | Cloud | API Gateway | REST ingest endpoint; pushes events to the SQS queue |
-| `queue_manager.py` | Cloud | SQS | Thread-safe queue with depth tracking and history |
-| `lambda_function.py` | Cloud | Lambda | Polls queue, enriches events, persists to DB, tracks throughput |
-| `dashboard/app.py` | Presentation | CloudWatch / QuickSight | Live Streamlit dashboard with system health and charts |
-
----
-
-## 📡 Data Flow
-
-1. **Sensor → Fog** — Every 5s the sensor simulator POSTs a JSON payload to the Fog Node at port 5000.
-2. **Fog processing** — The fog node runs alert detection locally (<1 ms latency), buffers events into batches of 5, then gzip-compresses and forwards each batch to the backend.
-3. **API → Queue** — The API gateway receives events via `POST /events`, assigns a unique `event_id`, and pushes them onto the in-memory SQS queue.
-4. **Lambda polling** — The Lambda worker continuously polls the queue, enriches events (re-validates alerts, adds severity), and persists records to SQLite.
-5. **Dashboard reads** — The Streamlit dashboard polls the API every 5s for live data, queue metrics, and system health status.
-
----
-
-## 🚀 How to Run Locally
-
-### 0. Install prerequisites
-
-```bash
-cd coldchain-monitor
-pip install -r requirements.txt
-```
-
-### 1. Start the API Gateway
-
-```bash
-# Terminal 1
-cd backend
-python api.py
-```
-
-### 2. Start the Lambda Worker
-
-```bash
-# Terminal 2
-cd backend
-python lambda_function.py
-```
-
-### 3. Start the Fog Node
-
-```bash
-# Terminal 3
-cd fog
-python fog_node.py
-```
-
-### 4. Start the Sensor Simulator
-
-```bash
-# Terminal 4
+Step 1: Run Sensor Simulator
+Navigate to the sensors folder:
 cd sensors
+
+Run the simulator:
 python sensor_simulator.py
-```
 
-### 5. Start the Dashboard
+This will continuously generate sensor data such as temperature, humidity, door status, and vibration.
 
-```bash
-# Terminal 5
+Step 2: Run Fog Node
+Open a new terminal and navigate to the fog folder:
+cd fog
+
+Run the fog application:
+python fog_app.py
+
+The fog node receives sensor data, checks for abnormal values, generates alerts, and sends processed data to AWS SQS.
+
+Step 3: Run Backend API
+Open a new terminal and navigate to the backend folder:
+cd backend
+
+Run the backend application:
+python app.py
+
+The backend consumes messages from AWS SQS, processes the data, and stores it in a SQLite database. It also provides API endpoints for accessing system data.
+
+Step 4: Run Dashboard
+Open a new terminal and navigate to the dashboard folder:
 cd dashboard
+
+Run the dashboard:
 streamlit run app.py
-```
 
-Then open **http://localhost:8501** in your browser.
+The dashboard will open in a browser and display system health, alerts, graphs, and logs in real time.
 
----
+AWS Setup
+Make sure an AWS SQS queue is created and AWS credentials are configured on your system.
 
-## 📊 API Endpoints
+You can configure AWS using:
+aws configure
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/events` | Receive enriched event from Fog Node → enqueue |
-| `GET` | `/events` | Retrieve stored events (supports `limit`, `device`, `alerts` filters) |
-| `GET` | `/summary` | Aggregated KPIs (total events, avg temp, alert breakdown) |
-| `GET` | `/health` | Server, queue, and database health check |
-| `GET` | `/metrics` | Detailed queue + Lambda throughput metrics |
-| `GET` | `/queue-status` | Queue depth + recent depth history (for chart) |
+Enter your access key, secret key, and region when prompted.
 
----
+System Flow
+Sensor data is generated and sent to the fog node. The fog node processes the data and sends it to AWS SQS. The backend retrieves the data from SQS, stores it in the database, and the dashboard displays the information.
 
-## 🛰️ Sensor Simulation Modes
+Notes
+All components must be running at the same time for the system to work correctly.
+If the dashboard does not update, restart the fog node and backend services.
+Ensure that the correct SQS queue URL is configured in the application.
 
-| Mode | Probability | Description |
-|---|---|---|
-| `normal` | 62 % | Safe readings within cold-chain thresholds |
-| `temp_spike` | 20 % | Temperature > 8 °C → SPOILAGE_RISK |
-| `high_vibration` | 10 % | Vibration > 70 → SHOCK_DAMAGE |
-| `burst` | 3 % | 10 events sent rapidly to stress-test the queue |
-| `anomaly` | 5 % | All sensors breached → CRITICAL severity |
+Project Structure
+sensors folder contains the sensor simulator
+fog folder contains the fog node implementation
+backend folder contains the backend API
+dashboard folder contains the Streamlit dashboard
 
----
-
-## ☁️ Future Deployment on AWS
-
-The architecture is designed to map directly to AWS services with minimal changes:
-
-| Local Component | AWS Service |
-|---|---|
-| `sensor_simulator.py` | Physical IoT devices with AWS IoT Core SDK |
-| `fog_node.py` | AWS Greengrass Core (edge runtime) |
-| `api.py` (Flask) | AWS API Gateway (REST API) |
-| `queue_manager.py` | AWS SQS Standard Queue |
-| `lambda_function.py` → `lambda_handler()` | AWS Lambda (SQS event source mapping) |
-| `coldchain_events.db` | AWS DynamoDB table |
-| `dashboard/app.py` | AWS QuickSight / Hosted Streamlit on EC2 |
-
-**Lambda deployment steps:**
-```bash
-zip lambda.zip backend/lambda_function.py
-aws lambda create-function \
-    --function-name cold-chain-processor \
-    --runtime python3.11 \
-    --role arn:aws:iam::<account>:role/lambda-sqs-dynamo \
-    --handler lambda_function.lambda_handler \
-    --zip-file fileb://lambda.zip
-# Then add SQS trigger in the Lambda console
-```
+End of README

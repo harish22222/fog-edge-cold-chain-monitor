@@ -21,8 +21,10 @@ Usage      : streamlit run app.py
 =============================================================================
 """
 
+import os
 import time
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
@@ -71,8 +73,10 @@ st.markdown("""
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-API_URL = "http://127.0.0.1:8000"
+API_URL = os.getenv("API_BASE_URL", "http://34.234.4.251:8000")
 REFRESH_RATE = 5
+REQUEST_TIMEOUT = 5
+LOCAL_TZ = ZoneInfo("Europe/Dublin")
 
 # ---------------------------------------------------------------------------
 # Data fetching helpers
@@ -80,7 +84,7 @@ REFRESH_RATE = 5
 @st.cache_data(ttl=2)
 def fetch_health():
     try:
-        r = requests.get(f"{API_URL}/health", timeout=2)
+        r = requests.get(f"{API_URL}/health", timeout=REQUEST_TIMEOUT)
         return r.json() if r.status_code == 200 else None
     except Exception:
         return None
@@ -89,7 +93,7 @@ def fetch_health():
 @st.cache_data(ttl=2)
 def fetch_queue_status():
     try:
-        r = requests.get(f"{API_URL}/queue-status", timeout=2)
+        r = requests.get(f"{API_URL}/queue-status", timeout=REQUEST_TIMEOUT)
         return r.json() if r.status_code == 200 else None
     except Exception:
         return None
@@ -98,7 +102,7 @@ def fetch_queue_status():
 @st.cache_data(ttl=2)
 def fetch_summary():
     try:
-        r = requests.get(f"{API_URL}/summary", timeout=2)
+        r = requests.get(f"{API_URL}/summary", timeout=REQUEST_TIMEOUT)
         return r.json() if r.status_code == 200 else None
     except Exception:
         return None
@@ -110,7 +114,7 @@ def fetch_events(limit=100, only_alerts=False):
         url = f"{API_URL}/events?limit={limit}"
         if only_alerts:
             url += "&alerts=true"
-        r = requests.get(url, timeout=2)
+        r = requests.get(url, timeout=REQUEST_TIMEOUT)
         return r.json() if r.status_code == 200 else []
     except Exception:
         return []
@@ -134,7 +138,10 @@ st.caption("Live monitoring for temperature, humidity, door status, vibration, a
 # Connection guard
 # ---------------------------------------------------------------------------
 if not health:
-    st.error("⚠️ Cannot connect to the backend API. Make sure `backend/api.py` is running on port 8000.")
+    st.error(
+        f"⚠️ Cannot connect to the backend API at {API_URL}. "
+        "Make sure the backend is running and publicly reachable."
+    )
     st.stop()
 
 # ---------------------------------------------------------------------------
@@ -148,10 +155,19 @@ latest_timestamp = "—"
 
 if events:
     df_live = pd.DataFrame(events)
+
     if "device_id" in df_live.columns:
         active_devices = df_live["device_id"].nunique()
+
     if "fog_timestamp" in df_live.columns and not df_live.empty:
-        latest_timestamp = df_live.iloc[0].get("fog_timestamp", "—")
+        df_live["fog_timestamp_dt"] = pd.to_datetime(
+            df_live["fog_timestamp"], errors="coerce", utc=True
+        )
+        df_live["fog_timestamp_local"] = df_live["fog_timestamp_dt"].dt.tz_convert("Europe/Dublin")
+        df_live = df_live.sort_values("fog_timestamp_local", ascending=False)
+        latest_row = df_live.iloc[0]
+        if pd.notna(latest_row["fog_timestamp_local"]):
+            latest_timestamp = latest_row["fog_timestamp_local"].strftime("%Y-%m-%d %H:%M:%S")
 
 lm_col1, lm_col2, lm_col3 = st.columns(3)
 with lm_col1:
@@ -191,7 +207,7 @@ with h_col1:
     api_online = health.get("status") == "healthy"
     dot = "🟢" if api_online else "🔴"
     st.markdown(f"**{dot} Backend API**")
-    st.caption("Port 8000 — Flask REST API")
+    st.caption("Port 8000 — Flask REST API on AWS EC2")
     st.metric("DB Records", health.get("db_records", 0))
 
 with h_col2:
@@ -208,9 +224,9 @@ with h_col3:
     st.metric("Failed Events", failed)
 
 with h_col4:
-    current_time = datetime.now().strftime("%H:%M:%S")
+    current_time = datetime.now(LOCAL_TZ).strftime("%H:%M:%S")
     st.markdown("**🟢 Dashboard Refresh**")
-    st.caption("Current UI refresh time")
+    st.caption("Current UI refresh time (Ireland)")
     st.metric("Last Refresh", current_time)
 
 st.divider()
@@ -254,15 +270,22 @@ with left_col:
     st.subheader("📉 Data Flow Monitoring")
     if queue_status and queue_status.get("queue_history"):
         qdf = pd.DataFrame(queue_status["queue_history"])
-        qdf["timestamp"] = pd.to_datetime(qdf["timestamp"], errors="coerce")
+        qdf["timestamp"] = pd.to_datetime(qdf["timestamp"], errors="coerce", utc=True)
+        qdf["timestamp"] = qdf["timestamp"].dt.tz_convert("Europe/Dublin")
         qdf = qdf.dropna(subset=["timestamp"]).sort_values("timestamp").set_index("timestamp")
         st.line_chart(qdf["depth"])
+        last_updated = queue_status.get("timestamp", "—")
+        try:
+            last_updated = pd.to_datetime(last_updated, utc=True).tz_convert("Europe/Dublin").strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            pass
+
         st.caption(
             f"Current depth: {queue_status.get('queue_size', 0)} | "
-            f"Last updated: {queue_status.get('timestamp', '—')}"
+            f"Last updated: {last_updated}"
         )
     else:
-        st.info("Timeline will appear here once data is available.")
+        st.info("Timeline will appear here once queue history data is available.")
 
 with right_col:
     st.subheader("🚨 Alert Breakdown")
@@ -301,7 +324,8 @@ with trend_col:
         df = pd.DataFrame(events)
 
         if "fog_timestamp" in df.columns:
-            df["time"] = pd.to_datetime(df["fog_timestamp"], errors="coerce")
+            df["time"] = pd.to_datetime(df["fog_timestamp"], errors="coerce", utc=True)
+            df["time"] = df["time"].dt.tz_convert("Europe/Dublin")
 
         if "time" in df.columns and "temperature" in df.columns:
             chart_df = df.dropna(subset=["time"]).sort_values("time").set_index("time")
@@ -325,7 +349,11 @@ with feed_col:
         for a in alerts_only[:6]:
             device = a.get("device_id", "?")
             fog_ts = a.get("fog_timestamp", "")
-            time_str = fog_ts.split("T")[1] if "T" in fog_ts else fog_ts
+            try:
+                time_str = pd.to_datetime(fog_ts, utc=True).tz_convert("Europe/Dublin").strftime("%H:%M:%S")
+            except Exception:
+                time_str = fog_ts
+
             alert_list = a.get("alerts", [])
             severity = a.get("severity", "WARNING")
 
@@ -350,35 +378,18 @@ with feed_col:
 st.divider()
 
 # ---------------------------------------------------------------------------
-# Architecture explanation
-# ---------------------------------------------------------------------------
-st.subheader("System Flow")
-st.markdown("""
-**Current Data Flow**
-- Sensor Simulator generates temperature, humidity, door-open, and vibration readings
-- Fog Node performs local alert detection
-- Backend API stores processed events in the database
-- Streamlit Dashboard visualises trends, alerts, and raw event history
-
-**Fog Layer Responsibilities**
-- Real-time anomaly detection
-- Immediate alert generation
-- Reduced unnecessary cloud traffic
-
-**Cloud / Backend Responsibilities**
-- Store historical sensor data
-- Serve analytics and summaries
-- Provide dashboard monitoring
-""")
-
-st.divider()
-
-# ---------------------------------------------------------------------------
 # Raw event log
 # ---------------------------------------------------------------------------
 st.subheader("📋 Raw Sensor Event Log")
 
 if events:
+    df_raw = pd.DataFrame(events)
+
+    if "fog_timestamp" in df_raw.columns:
+        df_raw["fog_timestamp"] = pd.to_datetime(df_raw["fog_timestamp"], errors="coerce", utc=True)
+        df_raw["fog_timestamp"] = df_raw["fog_timestamp"].dt.tz_convert("Europe/Dublin")
+        df_raw["fog_timestamp"] = df_raw["fog_timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
+
     display_cols = [
         "fog_timestamp",
         "device_id",
@@ -391,7 +402,6 @@ if events:
         "alerts",
     ]
 
-    df_raw = pd.DataFrame(events)
     available = [c for c in display_cols if c in df_raw.columns]
     st.dataframe(df_raw[available], use_container_width=True, hide_index=True)
 else:
