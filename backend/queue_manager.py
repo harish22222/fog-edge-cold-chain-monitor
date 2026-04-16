@@ -1,27 +1,3 @@
-"""
-=============================================================================
-QUEUE MANAGER — Smart Cold-Chain Delivery Monitor
-=============================================================================
-Component  : SQS Queue Simulation
-Layer      : Cloud / Message Queue
-Description:
-    Simulates AWS SQS using Python's thread-safe queue.Queue.
-    Provides a shared singleton that api.py pushes to and
-    lambda_function.py (worker mode) polls from.
-
-    Metrics tracked
-    ---------------
-    queue_size        — current depth (items waiting)
-    enqueued_total    — all events ever pushed
-    processed_total   — successfully processed by the Lambda worker
-    failed_total      — events that threw an exception during processing
-    queue_history     — time-series of queue depth (last 200 samples)
-
-Author : Cold-Chain Monitor System
-Date   : 2026-03-11
-=============================================================================
-"""
-
 import logging
 import queue
 import threading

@@ -1,26 +1,3 @@
-"""
-=============================================================================
-DASHBOARD LAYER — Smart Cold-Chain Delivery Monitor
-=============================================================================
-Component  : Streamlit Dashboard
-Layer      : Presentation / Dashboard
-Description:
-    Live monitoring dashboard showing:
-    - System health (Sensor, Fog, API, Database)
-    - Event ingestion timeline
-    - KPI metrics (events, alerts, temperature, humidity)
-    - Environmental trend charts
-    - Recent critical alerts panel
-    - Raw event log table
-
-    Auto-refreshes every 5 seconds.
-
-Author     : Cold-Chain Monitor System
-Date       : 2026-03-11
-Usage      : streamlit run app.py
-=============================================================================
-"""
-
 import os
 import time
 from datetime import datetime

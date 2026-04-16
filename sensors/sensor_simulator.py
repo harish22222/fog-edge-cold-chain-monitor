@@ -1,30 +1,3 @@
-"""
-=============================================================================
-SENSOR LAYER — Smart Cold-Chain Delivery Monitor
-=============================================================================
-Component  : Edge / IoT Sensor Simulator
-Layer      : Sensor Layer (Edge)
-Description:
-    Simulates four IoT sensors attached to a cold-chain delivery box:
-      1. Temperature sensor  (C)         - normal: 2-8 C
-      2. Humidity sensor     (%)         - normal: 40-75 %
-      3. Door/Open sensor    (boolean)   - open ~10 % of the time
-      4. Vibration/Shock     (0-100)     - spike >70 ~10 % of the time
-
-    Special simulation modes (triggered randomly):
-      - Anomaly spike     : 5 % chance -> extreme temperature + door open
-      - Burst traffic     : 3 % chance -> sends 10 events rapidly
-      - High vibration    : 10 % chance -> shock event
-      - Temperature spike : 20 % chance -> SPOILAGE_RISK temperature
-
-    Readings are sent via HTTP POST to the Fog Node every SEND_INTERVAL s.
-
-Author : Cold-Chain Monitor System
-Date   : 2026-03-11
-Usage  : python sensor_simulator.py
-=============================================================================
-"""
-
 import logging
 import random
 import sys

@@ -1,33 +1,3 @@
-"""
-=============================================================================
-BACKEND LAYER — Smart Cold-Chain Delivery Monitor
-=============================================================================
-Component  : Cloud Backend API (Direct DB Write Version)
-Layer      : Cloud / Backend
-Description:
-    Simplified local backend for the Cold-Chain project.
-
-    Flow:
-        Sensor -> Fog Node -> Backend API -> SQLite DB -> Dashboard
-
-    This version removes the local queue/lambda dependency so the system
-    works reliably in separate terminals/processes.
-
-    Endpoints
-    ---------
-    POST /events          <- enriched payloads from the Fog Node
-    GET  /events          <- stored events for the dashboard
-    GET  /summary         <- aggregate KPIs
-    GET  /health          <- server + DB health
-    GET  /metrics         <- throughput metrics
-    GET  /queue-status    <- simulated queue depth history for dashboard
-
-Author : Cold-Chain Monitor System
-Date   : 2026-03-11
-Usage  : python api.py
-=============================================================================
-"""
-
 import gzip
 import json
 import logging

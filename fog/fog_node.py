@@ -1,37 +1,3 @@
-"""
-=============================================================================
-FOG LAYER — Smart Cold-Chain Delivery Monitor
-=============================================================================
-Component  : Fog Node (Flask REST server)
-Layer      : Fog / Edge Processing
-Description:
-    Middle tier between raw sensors and the cloud backend.
-
-    Responsibilities
-    ----------------
-    1. Receive sensor payloads from edge devices  (POST /sensor-data)
-    2. Apply LOCAL alert-detection rules          (no cloud round-trip)
-    3. Maintain a short in-memory ring-buffer of recent readings
-    4. Batch sensor events and forward to the Cloud Backend API
-    5. Compress payloads before forwarding (gzip)
-    6. Track processing latency and fog-layer metrics
-    7. Expose GET /status  for health checks
-    8. Expose GET /data    so the dashboard can read the fog cache directly
-    9. Expose GET /metrics for fog-layer performance metrics
-
-    Alert rules
-    -----------
-    Temperature > 8 C   -> SPOILAGE_RISK
-    Humidity    > 75 %  -> HIGH_HUMIDITY
-    Door open           -> TAMPER_ALERT
-    Vibration   > 70    -> SHOCK_DAMAGE
-
-Author : Cold-Chain Monitor System
-Date   : 2026-03-11
-Usage  : python fog_node.py
-=============================================================================
-"""
-
 import gzip
 import json
 import logging
